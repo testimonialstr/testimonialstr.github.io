@@ -1,0 +1,126 @@
+import { useState } from "react";
+import { useAuth } from "../state/auth";
+import { pool, relays } from "../state/relay";
+import { buildTestimonial } from "../nip-a1/testimonial";
+import { wrapSignedEvent } from "../nip-a1/giftwrap";
+import { wrapDeliveryRelaysFor } from "../lib/nip65";
+import { useProfile, profileName } from "../state/profiles";
+import { shortNpub } from "../lib/keys";
+import { Avatar } from "./Avatar";
+import Modal from "./Modal";
+
+type Props = {
+  recipientPk: string;
+  onClose: () => void;
+  onSent?: () => void;
+};
+
+const MAX_CHARS = 500;
+
+export default function ComposeModal({ recipientPk, onClose, onSent }: Props) {
+  const { signer, pubkey } = useAuth();
+  const profile = useProfile(recipientPk);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+
+  const isSelf = !!pubkey && pubkey === recipientPk;
+
+  async function send() {
+    if (!signer || !pubkey) return;
+    if (isSelf) {
+      setError("Você não pode escrever um depoimento para si mesmo.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const template = buildTestimonial(recipientPk, text.trim());
+      const inner = await signer.signEvent(template);
+      const wrap = wrapSignedEvent(inner, recipientPk, { expiresInDays: 30 });
+      const targetRelays = await wrapDeliveryRelaysFor(recipientPk);
+      const allRelays = [...new Set([...targetRelays, ...relays()])];
+      await Promise.any(pool.publish(allRelays, wrap));
+      setSent(true);
+      onSent?.();
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const overLimit = text.length > MAX_CHARS;
+  const name = profileName(profile, shortNpub(recipientPk));
+
+  return (
+    <Modal onClose={onClose} disableBackdropClose={busy}>
+      <>
+        <button className="modal-close" onClick={onClose} disabled={busy}>
+          ×
+        </button>
+        <div className="modal-head">
+          <Avatar pk={recipientPk} size={48} />
+          <div>
+            <div className="modal-title">Escrever para {name}</div>
+            <div className="muted small mono">{shortNpub(recipientPk)}</div>
+          </div>
+        </div>
+
+        {isSelf ? (
+          <div className="sent-state">
+            <p>Você não pode escrever um depoimento para si mesmo.</p>
+            <button className="primary" onClick={onClose}>
+              Fechar
+            </button>
+          </div>
+        ) : sent ? (
+          <div className="sent-state">
+            <div className="big-check">✓</div>
+            <h3>Enviado</h3>
+            <p>
+              {name} precisa abrir o inbox e aprovar para que o testemunho
+              apareça no perfil. Como o gift-wrap é cifrado, ninguém vê o
+              conteúdo até lá.
+            </p>
+            <button className="primary" onClick={onClose}>
+              Fechar
+            </button>
+          </div>
+        ) : (
+          <>
+            <textarea
+              autoFocus
+              value={text}
+              placeholder="Escreva algo verdadeiro e específico…"
+              onChange={(e) => setText(e.target.value)}
+              rows={6}
+            />
+            <div className="compose-meta">
+              <span className={overLimit ? "warn" : "muted"}>
+                {text.length} / {MAX_CHARS}
+              </span>
+              <span className="muted small">
+                Encriptado em trânsito · expira em 30 dias se não aprovado
+              </span>
+            </div>
+            {error && <div className="error-banner">{error}</div>}
+            <div className="modal-actions">
+              <button className="ghost" onClick={onClose} disabled={busy}>
+                Cancelar
+              </button>
+              <button
+                className="primary"
+                disabled={busy || !text.trim() || overLimit}
+                onClick={send}
+              >
+                {busy ? "Enviando…" : "Assinar e enviar"}
+              </button>
+            </div>
+          </>
+        )}
+      </>
+    </Modal>
+  );
+}

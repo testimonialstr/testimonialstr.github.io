@@ -1,73 +1,94 @@
 # Testimonialstr
 
-Cliente Nostr focado em **testemunhos públicos** (NIP-A1). Sem timeline, sem
-ruído — você recebe endossos cifrados, decide o que aparece no seu perfil, e
-qualquer pessoa pode ver os testemunhos verificados em qualquer cliente
-compatível.
+Nostr client focused on **public testimonials** (NIP-A1). No timeline, no
+noise — you receive encrypted endorsements, decide what appears on your
+profile, and anyone can see the verified testimonials from any compatible
+client.
 
-## Como rodar
+## How to run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Abre em http://localhost:5174.
+Opens at http://localhost:5174.
 
-Você precisa de uma extensão NIP-07 instalada no navegador (nos2x, Alby,
-nostr-keyx, etc.) — a extensão deve expor `window.nostr.nip44` para conseguir
-descriptografar a inbox.
+You need a NIP-07 extension installed in the browser (nos2x, Alby,
+nostr-keyx, etc.) — the extension must expose `window.nostr.nip44` to
+decrypt the inbox.
 
-## Rotas
+## Routes
 
-- `/` — onboarding ou redireciona pro perfil do user logado
-- `/p/:npub` — perfil público de qualquer pubkey (read-only se você não for o dono)
-- `/inbox` — testemunhos pendentes pra você aceitar/recusar
+All routes are query-string based (single-page, works from any GitHub Pages
+subpath):
 
-## NIPs implementados
+- `/` — onboarding, or redirects to the profile of the logged-in user
+- `?p=<npub>` — public profile of any pubkey (read-only if you're not the owner)
+- `?p=<npub>&write=1` — profile with the compose modal open
+- `?view=inbox` — testimonials pending your accept/reject
+- `?view=friends` — your follow list (kind:3)
+- `?view=rejected` — your private rejection list (kind:10065)
+- `?view=sent` — testimonials you wrote that were accepted (with delete action)
 
-- **NIP-A1** — kind:63 (testemunho assinado), kind:10064 (lista pública)
-- **NIP-59** — gift wrap kind:1059 (sem seal kind:13, conforme NIP-A1)
-- **NIP-44 v2** — encriptação dos wraps
-- **NIP-07** — assinatura via extensão (login obrigatório)
-- **NIP-65** — descoberta de relays (kind:10002)
-- **NIP-17 DM relays** — descoberta de relay de entrega (kind:10050)
+## Implemented NIPs
+
+- **NIP-A1** — kind:63 (signed testimonial), kind:10064 (public list), kind:10065 (private rejection list)
+- **NIP-59** — gift wrap kind:1059 (no kind:13 seal, per NIP-A1)
+- **NIP-44 v2** — wrap encryption
+- **NIP-07** — signing via extension (login required)
+- **NIP-09** — deletion requests (kind:5) by the original author
+- **NIP-65** — relay discovery (kind:10002)
+- **NIP-17 DM relays** — delivery relay discovery (kind:10050)
 - **NIP-19** — npub/nprofile encoding
-- **NIP-09** — checagem de deleções (kind:5) feitas pelo autor
 
-## Decisões de arquitetura
+## Architecture decisions
 
-- **Login só via NIP-07.** Sem nsec digitada, sem chaves geradas, sem
-  personas. A extensão é a fonte de verdade da identidade.
-- **Encriptação do wrap usa chave efêmera local.** A `signEvent` da NIP-07
-  serve só pra kind:63 e kind:10064 (eventos do user). O wrap em si é assinado
-  por uma chave gerada e descartada — o usuário nunca confirma uma assinatura
-  por wrap enviado.
-- **Decriptação do inbox usa `nip44.decrypt` da NIP-07.** Cada wrap pendente
-  pede uma confirmação na extensão (comportamento esperado).
-- **Sem `alt` tag no wrap** (NIP-A1): manter uniformidade com NIP-17 e
-  outros gift-wraps.
-- **`expiration` de 30 dias** (NIP-40): bound do tempo de vida de wraps não
-  entregues/recusados.
-- **Render só do que está em `kind:10064`.** Mesmo que um kind:63 com seu `p`
-  apareça em algum relay, ele não vai ser exibido a menos que você tenha
-  aceitado e listado.
-- **Verificação obrigatória** de assinatura de cada kind:63 antes de exibir;
-  conferência de kind:5 dos autores pra esconder deletados.
-- **Recusados** ficam num set local (localStorage), pra não ficar reaparecendo
-  no inbox.
+- **Login only via NIP-07.** No typed nsec, no generated keys, no personas.
+  The extension is the source of truth for identity.
+- **Wrap encryption uses a local ephemeral key.** NIP-07's `signEvent` is
+  only used for kind:63 and kind:10064 (the user's events). The wrap itself
+  is signed by a generated-and-discarded key — the user never has to confirm
+  a signature per wrap sent.
+- **Inbox decryption uses `nip44.decrypt` from NIP-07.** Each pending wrap
+  prompts a confirmation in the extension (expected behavior).
+- **No `alt` tag on the wrap** (NIP-A1): keeps uniformity with NIP-17 and
+  other gift-wraps.
+- **30-day `expiration`** (NIP-40): bounds the lifetime of undelivered/rejected
+  wraps.
+- **Render only what is in `kind:10064`.** Even if a kind:63 with your `p`
+  tag shows up on some relay, it won't be displayed unless you've accepted
+  and listed it.
+- **Mandatory verification** of each kind:63 signature before display;
+  check of kind:5 from authors to hide deleted ones.
+- **Rejections** live in kind:10065 (NIP-A1), encrypted via NIP-44 to self,
+  following the NIP-51 private list pattern.
+- **Sent view** lists kind:63 events you authored that the recipient
+  accepted (only those are public). Delete publishes a kind:5 retraction.
 
-## Limitações conhecidas
+## Known limitations
 
-- Sem proof-of-work no envio (NIP-A1 sugere como mitigação opcional de spam).
-- Sem checagem de mute list (NIP-51) — também opcional.
-- Cache de perfis em `localStorage` com TTL de 24h; sem invalidação ativa por
-  novos kind:0.
-- Inbox só assina relays atualmente configurados — não puxa relays adicionais
-  do `kind:10050` do user logado pra escutar.
+- No proof-of-work on send (NIP-A1 suggests it as an optional spam mitigation).
+- No mute-list check (NIP-51) — also optional.
+- Profile cache in `localStorage` with 24h TTL; no active invalidation on
+  new kind:0 events.
+- Inbox only subscribes to the relays currently configured — doesn't fetch
+  additional relays from the logged-in user's `kind:10050` to listen on.
 
-## Aprendido com
+## Deploying to GitHub Pages
 
-`~/AndroidStudioProjects/nostr/nipa1/` (PoC do mesmo NIP). A lógica de
-gift-wrap e verify foi adaptada pra usar uma interface de signer NIP-07 em vez
-de chaves brutas.
+A workflow is provided at `.github/workflows/deploy.yml`. To enable:
+
+1. Push the repo to GitHub.
+2. Settings → Pages → **Source: GitHub Actions**.
+3. Each push to `main` (or manual `workflow_dispatch`) rebuilds and
+   republishes.
+
+Vite is configured with `base: "./"` so the build is agnostic to the
+deployed subpath.
+
+## Learned from
+
+`~/AndroidStudioProjects/nostr/nipa1/` (PoC of the same NIP). The gift-wrap
+and verify logic was adapted to use a NIP-07 signer interface instead of
+raw keys.

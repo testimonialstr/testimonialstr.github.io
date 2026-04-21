@@ -33,9 +33,9 @@ export default function FriendsStrip({ excludePk, limit = 12 }: Props) {
   return (
     <section className="friends-strip">
       <div className="section-head">
-        <h2>Outros amigos</h2>
-        <RouterLink route={{ view: "amigos" }} className="muted small">
-          ver todos →
+        <h2>Other friends</h2>
+        <RouterLink route={{ view: "friends" }} className="muted small">
+          see all →
         </RouterLink>
       </div>
       <div className="friends-strip-scroll">

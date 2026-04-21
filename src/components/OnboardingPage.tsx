@@ -9,25 +9,26 @@ export default function OnboardingPage() {
       <div className="onboarding-hero">
         <div className="quote-mark">“</div>
         <h1>
-          Recolha <em>depoimentos</em> que valem a pena exibir.
+          Collect <em>testimonials</em> worth displaying.
         </h1>
         <p className="lede">
-          Testimonialstr é um cliente Nostr focado em endossos públicos
-          — sem timeline, sem ruído. Você decide o que aparece no seu perfil,
-          e cada testemunho carrega assinatura criptográfica de quem escreveu.
+          Testimonialstr is a Nostr client focused on public endorsements
+          — no timeline, no noise. You decide what appears on your profile,
+          and every testimonial carries a cryptographic signature from whoever
+          wrote it.
         </p>
 
         <div className="onboarding-actions">
           {hasNip07 ? (
             <button className="primary big" onClick={login} disabled={loading}>
-              {loading ? "Conectando…" : "Entrar com extensão NIP-07"}
+              {loading ? "Connecting…" : "Sign in with NIP-07 extension"}
             </button>
           ) : (
             <div className="nip07-missing">
-              <strong>Nenhuma extensão NIP-07 detectada.</strong>
+              <strong>No NIP-07 extension detected.</strong>
               <p>
-                Para usar o Testimonialstr você precisa de uma extensão de
-                assinatura Nostr instalada no navegador:
+                To use Testimonialstr you need a Nostr signing extension
+                installed in your browser:
               </p>
               <ul className="ext-list">
                 <li>
@@ -38,7 +39,7 @@ export default function OnboardingPage() {
                   >
                     nos2x
                   </a>{" "}
-                  — minimalista, open-source
+                  — minimalist, open-source
                 </li>
                 <li>
                   <a
@@ -58,11 +59,11 @@ export default function OnboardingPage() {
                   >
                     nostr-keyx
                   </a>{" "}
-                  — usa o keychain do macOS
+                  — uses the macOS keychain
                 </li>
               </ul>
               <p className="muted small">
-                Depois de instalar, recarregue esta página.
+                After installing, reload this page.
               </p>
             </div>
           )}
@@ -73,27 +74,27 @@ export default function OnboardingPage() {
       <div className="onboarding-cards">
         <div className="info-card">
           <div className="info-num">1</div>
-          <h3>Receba</h3>
+          <h3>Receive</h3>
           <p>
-            Pessoas escrevem testemunhos cifrados via gift-wrap (NIP-59). Só
-            chegam ao mundo se você aprovar.
+            People write encrypted testimonials via gift-wrap (NIP-59). They
+            only go public if you approve them.
           </p>
         </div>
         <div className="info-card">
           <div className="info-num">2</div>
-          <h3>Aprove</h3>
+          <h3>Approve</h3>
           <p>
-            Cada testemunho carrega a assinatura do autor. Você verifica e
-            decide o que entra na sua lista pública (kind:10064).
+            Every testimonial carries the author's signature. You verify and
+            decide what goes on your public list (kind:10064).
           </p>
         </div>
         <div className="info-card">
           <div className="info-num">3</div>
-          <h3>Compartilhe</h3>
+          <h3>Share</h3>
           <p>
-            Seu perfil tem uma URL pública.{" "}
-            <code>?p=npub1…</code> — qualquer pessoa pode ver os testemunhos
-            verificados, em qualquer cliente compatível.
+            Your profile has a public URL.{" "}
+            <code>?p=npub1…</code> — anyone can see the verified testimonials
+            in any compatible client.
           </p>
         </div>
       </div>

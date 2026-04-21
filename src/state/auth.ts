@@ -15,10 +15,10 @@ type State = {
 
 async function pickSigner(wait: boolean): Promise<Nip07> {
   const nip07 = wait ? await waitForNip07() : getNip07();
-  if (!nip07) throw new Error("Nenhuma extensão NIP-07 encontrada");
+  if (!nip07) throw new Error("No NIP-07 extension found");
   if (!nip07.nip44)
     throw new Error(
-      "Sua extensão NIP-07 não expõe nip44 — necessário para descriptografar o inbox.",
+      "Your NIP-07 extension doesn't expose nip44 — required to decrypt the inbox.",
     );
   return nip07;
 }

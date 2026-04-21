@@ -43,7 +43,7 @@ export default function Header() {
                 "nav-link" + (isActive ? " active" : "")
               }
             >
-              Meu perfil
+              My profile
             </NavRouterLink>
             <NavRouterLink
               route={{ view: "inbox" }}
@@ -54,28 +54,28 @@ export default function Header() {
               Inbox
             </NavRouterLink>
             <NavRouterLink
-              route={{ view: "amigos" }}
+              route={{ view: "friends" }}
               className={({ isActive }) =>
                 "nav-link" + (isActive ? " active" : "")
               }
             >
-              Amigos
+              Friends
             </NavRouterLink>
             <NavRouterLink
-              route={{ view: "recusados" }}
+              route={{ view: "rejected" }}
               className={({ isActive }) =>
                 "nav-link" + (isActive ? " active" : "")
               }
             >
-              Recusados
+              Rejected
             </NavRouterLink>
             <NavRouterLink
-              route={{ view: "enviados" }}
+              route={{ view: "sent" }}
               className={({ isActive }) =>
                 "nav-link" + (isActive ? " active" : "")
               }
             >
-              Enviados
+              Sent
             </NavRouterLink>
             <button
               className="nav-link nav-link-cta"
@@ -85,7 +85,7 @@ export default function Header() {
               }}
               title="Cmd/Ctrl + K"
             >
-              Procurar amigo
+              Find profile
             </button>
           </>
         )}
@@ -116,19 +116,23 @@ export default function Header() {
               <button
                 className="link-btn"
                 onClick={() => {
-                  if (confirm("Sair? Você precisará reconectar a extensão.")) {
+                  if (
+                    confirm(
+                      "Log out? You'll need to reconnect the extension.",
+                    )
+                  ) {
                     logout();
                     navigate({ view: "home" });
                   }
                 }}
               >
-                sair
+                log out
               </button>
             </div>
           </div>
         ) : (
           <button className="primary" onClick={login} disabled={loading}>
-            {loading ? "Conectando…" : "Login com NIP-07"}
+            {loading ? "Connecting…" : "Sign in with NIP-07"}
           </button>
         )}
       </div>

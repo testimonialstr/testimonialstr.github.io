@@ -11,7 +11,7 @@ export default function RelayIndicator() {
       <button
         className="relay-pill"
         onClick={() => setOpen((o) => !o)}
-        title="Relays configurados"
+        title="Configured relays"
       >
         <span className="dot" />
         {urls.length} relays
@@ -27,7 +27,7 @@ export default function RelayIndicator() {
                   className="link-btn danger"
                   onClick={() => removeUrl(u)}
                 >
-                  remover
+                  remove
                 </button>
               </li>
             ))}
@@ -43,7 +43,7 @@ export default function RelayIndicator() {
             }}
           >
             <input
-              placeholder="wss://relay.exemplo.com"
+              placeholder="wss://relay.example.com"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
             />

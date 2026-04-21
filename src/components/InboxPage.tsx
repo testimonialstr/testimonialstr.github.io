@@ -154,20 +154,20 @@ export default function InboxPage() {
       <div className="page-head">
         <h1>Inbox</h1>
         <div className="muted small">
-          {status === "loading" && "Conectando aos relays…"}
+          {status === "loading" && "Connecting to relays…"}
           {status === "listening" &&
             (items.length === 0
-              ? "Escutando · nada novo"
-              : `Escutando · ${items.length} pendente(s)`)}
-          {status === "error" && "Erro"}
+              ? "Listening · nothing new"
+              : `Listening · ${items.length} pending`)}
+          {status === "error" && "Error"}
         </div>
       </div>
 
       <div className="muted small inbox-help">
-        Testemunhos são encriptados ponta-a-ponta no envio. Ao aceitar, o
-        evento <code>kind:63</code> assinado pelo autor é publicado e adicionado
-        à sua lista pública. Ao recusar, o gift-wrap é descartado localmente —
-        ninguém será notificado.
+        Testimonials are end-to-end encrypted on send. When you accept, the
+        <code>kind:63</code> event signed by the author is published and added
+        to your public list. When you reject, the gift-wrap is discarded
+        locally — nobody is notified.
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -175,14 +175,14 @@ export default function InboxPage() {
       {items.length === 0 && status !== "loading" ? (
         <div className="empty-state">
           <div className="empty-quote">“</div>
-          <p>Nenhum testemunho pendente. Compartilhe o link do seu perfil:</p>
+          <p>No pending testimonials. Share your profile link:</p>
           <button
             className="ghost"
             onClick={() =>
               navigate({ view: "profile", npub: npub(pubkey) })
             }
           >
-            Ir para meu perfil →
+            Go to my profile →
           </button>
         </div>
       ) : (
@@ -196,7 +196,7 @@ export default function InboxPage() {
                     "badge " + (p.ok ? "badge-ok" : "badge-bad")
                   }
                 >
-                  {p.ok ? "assinatura válida" : `inválido: ${p.reason}`}
+                  {p.ok ? "valid signature" : `invalid: ${p.reason}`}
                 </span>
               </div>
               <blockquote className="inbox-quote">
@@ -208,14 +208,14 @@ export default function InboxPage() {
                   disabled={!p.ok || busyId === p.wrapId}
                   onClick={() => accept(p)}
                 >
-                  {busyId === p.wrapId ? "Publicando…" : "Aceitar e publicar"}
+                  {busyId === p.wrapId ? "Publishing…" : "Accept and publish"}
                 </button>
                 <button
                   className="ghost"
                   disabled={busyId === p.wrapId}
                   onClick={() => reject(p)}
                 >
-                  Recusar
+                  Reject
                 </button>
               </div>
             </li>

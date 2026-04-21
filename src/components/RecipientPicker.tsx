@@ -45,7 +45,7 @@ export default function RecipientPicker({ onClose, mode = "write" }: Props) {
     try {
       const pk = decodeNpub(value.trim());
       if (mode === "write" && pubkey && pk === pubkey) {
-        setError("Você não pode escrever um depoimento para si mesmo.");
+        setError("You can't write a testimonial to yourself.");
         return;
       }
       onClose();
@@ -55,13 +55,13 @@ export default function RecipientPicker({ onClose, mode = "write" }: Props) {
         write: mode === "write",
       });
     } catch {
-      setError("npub inválida — cole uma npub1… ou hex de 64 chars");
+      setError("invalid npub — paste an npub1… or 64-char hex");
     }
   }
 
   function goToPk(pk: string) {
     if (mode === "write" && pubkey && pk === pubkey) {
-      setError("Você não pode escrever um depoimento para si mesmo.");
+      setError("You can't write a testimonial to yourself.");
       return;
     }
     onClose();
@@ -81,17 +81,17 @@ export default function RecipientPicker({ onClose, mode = "write" }: Props) {
         <div className="modal-head">
           <div>
             <div className="modal-title">
-              {mode === "write" ? "Escrever depoimento" : "Ir para um perfil"}
+              {mode === "write" ? "Write a testimonial" : "Go to a profile"}
             </div>
             <div className="muted small">
-              Comece a digitar um nome para buscar entre quem você segue, ou
-              cole uma npub.
+              Start typing a name to search among who you follow, or paste an
+              npub.
             </div>
           </div>
         </div>
         <input
           autoFocus
-          placeholder="@nome ou npub1…"
+          placeholder="@name or npub1…"
           value={value}
           onChange={(e) => {
             setValue(e.target.value);
@@ -124,7 +124,7 @@ export default function RecipientPicker({ onClose, mode = "write" }: Props) {
 
         <div className="modal-actions">
           <button className="ghost" onClick={onClose}>
-            Cancelar
+            Cancel
           </button>
           {looksLikeKey && (
             <button
@@ -132,7 +132,7 @@ export default function RecipientPicker({ onClose, mode = "write" }: Props) {
               disabled={!value.trim()}
               onClick={goByKey}
             >
-              Ir para o perfil
+              Go to profile
             </button>
           )}
         </div>
@@ -160,13 +160,13 @@ function FollowSuggestions({
 }: SuggProps) {
   if (loading && !hasFollows) {
     return (
-      <div className="picker-list-empty">Carregando quem você segue…</div>
+      <div className="picker-list-empty">Loading your follow list…</div>
     );
   }
   if (pks.length === 0) {
     return (
       <div className="picker-list-empty">
-        Você ainda não segue ninguém (kind:3). Cole uma npub para continuar.
+        You don't follow anyone yet (kind:3). Paste an npub to continue.
       </div>
     );
   }

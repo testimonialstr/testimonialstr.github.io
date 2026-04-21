@@ -39,13 +39,13 @@ export default function TestimonialCard({
               onClick={() => {
                 if (
                   confirm(
-                    "Remover este testemunho do seu perfil? Ele continuará existindo em relays — só não aparecerá mais na sua lista.",
+                    "Remove this testimonial from your profile? It will still exist on relays — it just won't appear on your list anymore.",
                   )
                 )
                   onRemove();
               }}
             >
-              remover
+              remove
             </button>
           )}
         </div>

@@ -104,7 +104,7 @@ export default function SentPage() {
     if (!pubkey || !signer) return;
     if (
       !confirm(
-        "Publicar uma retratação (kind:5) deste depoimento? Clientes que respeitam NIP-09 vão escondê-lo no perfil do destinatário. A ação é irreversível.",
+        "Publish a retraction (kind:5) for this testimonial? Clients that honor NIP-09 will hide it on the recipient's profile. This action is irreversible.",
       )
     )
       return;
@@ -134,22 +134,22 @@ export default function SentPage() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Enviados</h1>
+        <h1>Sent</h1>
         <div className="muted small">
           {loading
-            ? "Buscando nos relays…"
+            ? "Fetching from relays…"
             : rows.length === 0
-              ? "Nada publicado"
-              : `${rows.length} depoimento(s) aceito(s)`}
+              ? "Nothing published"
+              : `${rows.length} accepted testimonial(s)`}
         </div>
       </div>
 
       <div className="muted small inbox-help">
-        Depoimentos que você escreveu e que o destinatário aceitou — agora
-        públicos como <code>kind:63</code>. Apagar publica um{" "}
-        <code>kind:5</code> de retratação (NIP-09) nos relays; clientes que
-        respeitam a NIP escondem o testemunho automaticamente. Pendentes não
-        aparecem aqui — o gift-wrap com chave efêmera não é recuperável.
+        Testimonials you wrote that the recipient accepted — now public as{" "}
+        <code>kind:63</code>. Deleting publishes a <code>kind:5</code>{" "}
+        retraction (NIP-09) to relays; clients that honor the NIP hide the
+        testimonial automatically. Pending ones don't show up here — the
+        gift-wrap's ephemeral key is not recoverable.
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -163,8 +163,8 @@ export default function SentPage() {
         <div className="empty-state">
           <div className="empty-quote">“</div>
           <p>
-            Nenhum depoimento seu foi aceito ainda. Quando alguém aceitar um
-            que você enviou, ele aparecerá aqui.
+            None of your testimonials have been accepted yet. When someone
+            accepts one you sent, it will appear here.
           </p>
         </div>
       ) : (
@@ -173,7 +173,7 @@ export default function SentPage() {
             <li key={r.ev.id} className="inbox-item">
               <div className="inbox-item-head">
                 <AuthorLine pk={r.recipientPk} />
-                <span className="badge">para</span>
+                <span className="badge">to</span>
               </div>
               <blockquote className="inbox-quote">
                 <RichText text={r.ev.content} />
@@ -187,7 +187,7 @@ export default function SentPage() {
                   disabled={busyId === r.ev.id}
                   onClick={() => remove(r.ev)}
                 >
-                  {busyId === r.ev.id ? "Publicando…" : "Apagar (kind:5)"}
+                  {busyId === r.ev.id ? "Publishing…" : "Delete (kind:5)"}
                 </button>
               </div>
             </li>

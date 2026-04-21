@@ -30,7 +30,7 @@ export default function ComposeModal({ recipientPk, onClose, onSent }: Props) {
   async function send() {
     if (!signer || !pubkey) return;
     if (isSelf) {
-      setError("Você não pode escrever um depoimento para si mesmo.");
+      setError("You can't write a testimonial to yourself.");
       return;
     }
     setBusy(true);
@@ -63,29 +63,29 @@ export default function ComposeModal({ recipientPk, onClose, onSent }: Props) {
         <div className="modal-head">
           <Avatar pk={recipientPk} size={48} />
           <div>
-            <div className="modal-title">Escrever para {name}</div>
+            <div className="modal-title">Write to {name}</div>
             <div className="muted small mono">{shortNpub(recipientPk)}</div>
           </div>
         </div>
 
         {isSelf ? (
           <div className="sent-state">
-            <p>Você não pode escrever um depoimento para si mesmo.</p>
+            <p>You can't write a testimonial to yourself.</p>
             <button className="primary" onClick={onClose}>
-              Fechar
+              Close
             </button>
           </div>
         ) : sent ? (
           <div className="sent-state">
             <div className="big-check">✓</div>
-            <h3>Enviado</h3>
+            <h3>Sent</h3>
             <p>
-              {name} precisa abrir o inbox e aprovar para que o testemunho
-              apareça no perfil. Como o gift-wrap é cifrado, ninguém vê o
-              conteúdo até lá.
+              {name} needs to open their inbox and approve it for the
+              testimonial to show up on their profile. Since the gift-wrap is
+              encrypted, nobody can see the content until then.
             </p>
             <button className="primary" onClick={onClose}>
-              Fechar
+              Close
             </button>
           </div>
         ) : (
@@ -93,7 +93,7 @@ export default function ComposeModal({ recipientPk, onClose, onSent }: Props) {
             <textarea
               autoFocus
               value={text}
-              placeholder="Escreva algo verdadeiro e específico…"
+              placeholder="Write something true and specific…"
               onChange={(e) => setText(e.target.value)}
               rows={6}
             />
@@ -102,20 +102,20 @@ export default function ComposeModal({ recipientPk, onClose, onSent }: Props) {
                 {text.length} / {MAX_CHARS}
               </span>
               <span className="muted small">
-                Encriptado em trânsito · expira em 30 dias se não aprovado
+                Encrypted in transit · expires in 30 days if not approved
               </span>
             </div>
             {error && <div className="error-banner">{error}</div>}
             <div className="modal-actions">
               <button className="ghost" onClick={onClose} disabled={busy}>
-                Cancelar
+                Cancel
               </button>
               <button
                 className="primary"
                 disabled={busy || !text.trim() || overLimit}
                 onClick={send}
               >
-                {busy ? "Enviando…" : "Assinar e enviar"}
+                {busy ? "Sending…" : "Sign and send"}
               </button>
             </div>
           </>

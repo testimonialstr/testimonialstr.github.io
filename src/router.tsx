@@ -9,9 +9,9 @@ export type Route =
   | { view: "home" }
   | { view: "profile"; npub: string; write?: boolean }
   | { view: "inbox" }
-  | { view: "amigos" }
-  | { view: "recusados" }
-  | { view: "enviados" };
+  | { view: "friends" }
+  | { view: "rejected" }
+  | { view: "sent" };
 
 function parseLocation(): Route {
   const params = new URLSearchParams(window.location.search);
@@ -26,9 +26,9 @@ function parseLocation(): Route {
   const v = params.get("view");
   if (
     v === "inbox" ||
-    v === "amigos" ||
-    v === "recusados" ||
-    v === "enviados"
+    v === "friends" ||
+    v === "rejected" ||
+    v === "sent"
   ) {
     return { view: v };
   }
@@ -47,12 +47,12 @@ export function routeToHref(route: Route): string {
     }
     case "inbox":
       return "?view=inbox";
-    case "amigos":
-      return "?view=amigos";
-    case "recusados":
-      return "?view=recusados";
-    case "enviados":
-      return "?view=enviados";
+    case "friends":
+      return "?view=friends";
+    case "rejected":
+      return "?view=rejected";
+    case "sent":
+      return "?view=sent";
   }
 }
 

@@ -29,17 +29,17 @@ export default function FriendsPage() {
   return (
     <div className="page friends-page">
       <div className="page-head">
-        <h1>Amigos</h1>
+        <h1>Friends</h1>
         <div className="muted small">
           {loading && visible.length === 0
-            ? "Carregando kind:3…"
-            : `${visible.length} perfil(is) que você segue`}
+            ? "Loading kind:3…"
+            : `${visible.length} profile(s) you follow`}
         </div>
       </div>
 
       <input
         className="friends-search"
-        placeholder="Buscar por nome, handle ou nip05…"
+        placeholder="Search by name, handle or nip05…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -48,8 +48,8 @@ export default function FriendsPage() {
         <div className="empty-state">
           <div className="empty-quote">“</div>
           <p>
-            Você ainda não segue ninguém (kind:3). Quando seguir pessoas em
-            qualquer cliente Nostr, elas aparecem aqui.
+            You don't follow anyone yet (kind:3). When you follow people in
+            any Nostr client, they will appear here.
           </p>
         </div>
       ) : (

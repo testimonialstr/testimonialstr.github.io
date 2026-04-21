@@ -29,9 +29,9 @@ export default function App() {
 
   const gated =
     route.view === "inbox" ||
-    route.view === "amigos" ||
-    route.view === "recusados" ||
-    route.view === "enviados";
+    route.view === "friends" ||
+    route.view === "rejected" ||
+    route.view === "sent";
 
   useEffect(() => {
     if (route.view === "home" && pubkey) {
@@ -51,7 +51,7 @@ export default function App() {
     case "home":
       body = pubkey ? null : restoring ? (
         <div className="page" style={{ textAlign: "center", padding: 64 }}>
-          <div className="muted">Reconectando à sua extensão…</div>
+          <div className="muted">Reconnecting to your extension…</div>
         </div>
       ) : (
         <OnboardingPage />
@@ -63,13 +63,13 @@ export default function App() {
     case "inbox":
       body = pubkey ? <InboxPage /> : null;
       break;
-    case "amigos":
+    case "friends":
       body = pubkey ? <FriendsPage /> : null;
       break;
-    case "recusados":
+    case "rejected":
       body = pubkey ? <RejectedPage /> : null;
       break;
-    case "enviados":
+    case "sent":
       body = pubkey ? <SentPage /> : null;
       break;
   }

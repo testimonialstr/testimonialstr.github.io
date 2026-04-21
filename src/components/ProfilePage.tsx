@@ -97,9 +97,9 @@ function FollowButton({ targetPk }: { targetPk: string }) {
         className={following ? "ghost following" : "ghost"}
         onClick={toggle}
         disabled={busy}
-        title={following ? "Deixar de seguir" : "Seguir esta pessoa"}
+        title={following ? "Unfollow" : "Follow this person"}
       >
-        {busy ? "…" : following ? "Seguindo" : "Seguir"}
+        {busy ? "…" : following ? "Following" : "Follow"}
       </button>
       {error && <div className="error-banner">{error}</div>}
     </>
@@ -144,7 +144,7 @@ export default function ProfilePage({ npubParam, write }: Props) {
 
   useEffect(() => {
     if (!targetPk) {
-      setError("npub inválida");
+      setError("invalid npub");
       setLoading(false);
       return;
     }
@@ -236,12 +236,12 @@ export default function ProfilePage({ npubParam, write }: Props) {
   if (!targetPk) {
     return (
       <div className="page">
-        <div className="error-banner">npub inválida na URL</div>
+        <div className="error-banner">invalid npub in URL</div>
         <button
           className="ghost"
           onClick={() => navigate({ view: "home" })}
         >
-          Voltar
+          Back
         </button>
       </div>
     );
@@ -275,7 +275,7 @@ export default function ProfilePage({ npubParam, write }: Props) {
                 className="primary"
                 onClick={() => setComposeOpen(true)}
               >
-                Escrever testemunho
+                Write a testimonial
               </button>
               <FollowButton targetPk={targetPk} />
             </>
@@ -285,18 +285,18 @@ export default function ProfilePage({ npubParam, write }: Props) {
             onClick={() => {
               navigator.clipboard.writeText(window.location.href);
             }}
-            title="Copiar URL deste perfil"
+            title="Copy this profile's URL"
           >
-            Copiar link
+            Copy link
           </button>
         </div>
       </section>
 
       <section className="testimonials-section">
         <div className="section-head">
-          <h2>Testemunhos</h2>
+          <h2>Testimonials</h2>
           {!loading && rows.length > 0 && (
-            <span className="muted">{rows.length} verificado(s)</span>
+            <span className="muted">{rows.length} verified</span>
           )}
         </div>
 
@@ -312,15 +312,15 @@ export default function ProfilePage({ npubParam, write }: Props) {
             <div className="empty-quote">“</div>
             <p>
               {isOwner
-                ? "Você ainda não tem testemunhos publicados. Compartilhe o link do seu perfil — quando alguém escrever, aparecerá no Inbox para você aprovar."
-                : `${name} ainda não tem testemunhos publicados.`}
+                ? "You don't have any published testimonials yet. Share your profile link — when someone writes one, it'll show up in your Inbox for approval."
+                : `${name} doesn't have any published testimonials yet.`}
             </p>
             {meNpub && !isOwner && (
               <button
                 className="primary"
                 onClick={() => setComposeOpen(true)}
               >
-                Seja a primeira pessoa
+                Be the first
               </button>
             )}
           </div>

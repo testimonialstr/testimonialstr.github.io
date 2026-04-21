@@ -67,25 +67,25 @@ export default function RejectedPage() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Recusados</h1>
+        <h1>Rejected</h1>
         <div className="muted small">
           {syncedFor === pubkey
-            ? `${ids.length} na lista kind:10065`
-            : "Sincronizando com relays…"}
+            ? `${ids.length} on the kind:10065 list`
+            : "Syncing with relays…"}
         </div>
       </div>
 
       <div className="muted small inbox-help">
-        Esta é a sua lista privada <code>kind:10065</code> — cifrada com NIP-44
-        para você mesmo. Testemunhos aqui não aparecem no inbox. Restaurar
-        remove o id da lista; se o autor reenviar o gift-wrap, aparecerá no
-        inbox de novo.
+        This is your private <code>kind:10065</code> list — encrypted with
+        NIP-44 to yourself. Testimonials here don't show up in the inbox.
+        Restoring removes the id from the list; if the author resends the
+        gift-wrap, it will appear in the inbox again.
       </div>
 
       {ids.length === 0 ? (
         <div className="empty-state">
           <div className="empty-quote">“</div>
-          <p>Você ainda não recusou nenhum testemunho.</p>
+          <p>You haven't rejected any testimonials yet.</p>
         </div>
       ) : (
         <ul className="inbox-list">
@@ -99,7 +99,7 @@ export default function RejectedPage() {
                     {r.id.slice(0, 16)}…{r.id.slice(-8)}
                   </div>
                 )}
-                <span className="badge">recusado</span>
+                <span className="badge">rejected</span>
               </div>
               {r.ev ? (
                 <blockquote className="inbox-quote">
@@ -108,8 +108,8 @@ export default function RejectedPage() {
               ) : (
                 <div className="muted small">
                   {loading
-                    ? "Buscando conteúdo nos relays…"
-                    : "Conteúdo indisponível (o evento nunca foi publicado ou expirou nos relays)."}
+                    ? "Fetching content from relays…"
+                    : "Content unavailable (the event was never published or has expired on relays)."}
                 </div>
               )}
               <div className="inbox-actions">
@@ -118,13 +118,13 @@ export default function RejectedPage() {
                   onClick={() => {
                     if (
                       confirm(
-                        "Restaurar este id? Se o autor reenviar, voltará ao inbox.",
+                        "Restore this id? If the author resends, it will come back to the inbox.",
                       )
                     )
                       unrejectInner(r.id);
                   }}
                 >
-                  Restaurar
+                  Restore
                 </button>
               </div>
             </li>

@@ -2,24 +2,20 @@ import { useEffect, useState } from "react";
 import type { Event } from "nostr-tools/pure";
 import { useAuth } from "../state/auth";
 import { pool, relays, useRelay } from "../state/relay";
-import { unwrapSignedEvent, KIND_WRAP } from "../nip-a1/giftwrap";
-import { verifyTestimonial } from "../nip-a1/verify";
+import { openEnvelope, KIND_ENVELOPE } from "../nip-a1/envelope";
+import { verifyTestimonialInEnvelope } from "../nip-a1/verify";
 import { KIND_TESTIMONIAL } from "../nip-a1/testimonial";
-import {
-  addRef,
-  buildListTemplate,
-  type TestimonialRef,
-} from "../nip-a1/list";
+import { addRef, buildListTemplate } from "../nip-a1/list";
 import { useRejected } from "../state/rejected";
 import { useTestimonialList } from "../state/testimonialList";
 import { writeRelaysFor } from "../lib/nip65";
-import { Avatar, AuthorLine } from "./Avatar";
+import { AuthorLine } from "./Avatar";
 import { npub } from "../lib/keys";
 import { navigate } from "../router";
 import { RichText } from "../lib/richtext";
 
 type Pending = {
-  wrapId: string;
+  envelopeId: string;
   inner: Event;
   authorPk: string;
   content: string;
@@ -59,25 +55,27 @@ export default function InboxPage() {
 
         sub = pool.subscribeMany(
           relays(),
-          { kinds: [KIND_WRAP], "#p": [pubkey] },
+          { kinds: [KIND_ENVELOPE], "#p": [pubkey] },
           {
-            onevent: async (wrap) => {
+            onevent: async (envelope) => {
               if (cancelled) return;
-              if (isRejected(wrap.id)) return;
+              if (isRejected(envelope.id)) return;
               try {
-                const inner = await unwrapSignedEvent(wrap, signer);
-                // Skip anything that isn't a testimonial — gift wraps also
-                // carry NIP-17 DMs (inner kind:13 seals) and other payloads.
+                const inner = await openEnvelope(envelope, signer);
                 if (inner.kind !== KIND_TESTIMONIAL) return;
                 if (acceptedIds.has(inner.id)) return;
                 if (isInnerRejected(inner.id)) return;
-                const v = verifyTestimonial(inner, pubkey);
+                const v = verifyTestimonialInEnvelope(
+                  inner,
+                  envelope.pubkey,
+                  pubkey,
+                );
                 setItems((prev) => {
-                  if (prev.some((p) => p.wrapId === wrap.id)) return prev;
+                  if (prev.some((p) => p.envelopeId === envelope.id)) return prev;
                   return [
                     ...prev,
                     {
-                      wrapId: wrap.id,
+                      envelopeId: envelope.id,
                       inner,
                       authorPk: inner.pubkey,
                       content: inner.content,
@@ -88,8 +86,7 @@ export default function InboxPage() {
                   ].sort((a, b) => b.createdAt - a.createdAt);
                 });
               } catch {
-                // Not a testimonial, or undecryptable. Silently skip — gift wraps
-                // are also used for NIP-17 DMs etc.
+                // undecryptable — not for us
               }
             },
             oneose: () => {
@@ -113,7 +110,7 @@ export default function InboxPage() {
 
   async function accept(p: Pending) {
     if (!pubkey || !signer) return;
-    setBusyId(p.wrapId);
+    setBusyId(p.envelopeId);
     try {
       const [myRelays, authorRelays] = await Promise.all([
         writeRelaysFor(pubkey),
@@ -134,7 +131,7 @@ export default function InboxPage() {
       const signed = await signer.signEvent(tmpl);
       await Promise.any(pool.publish(relays(), signed));
       setListRefs(pubkey, updated);
-      setItems((prev) => prev.filter((x) => x.wrapId !== p.wrapId));
+      setItems((prev) => prev.filter((x) => x.envelopeId !== p.envelopeId));
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -143,8 +140,8 @@ export default function InboxPage() {
   }
 
   function reject(p: Pending) {
-    markRejected(p.wrapId, p.inner.id);
-    setItems((prev) => prev.filter((x) => x.wrapId !== p.wrapId));
+    markRejected(p.envelopeId, p.inner);
+    setItems((prev) => prev.filter((x) => x.envelopeId !== p.envelopeId));
   }
 
   if (!pubkey) return null;
@@ -164,10 +161,11 @@ export default function InboxPage() {
       </div>
 
       <div className="muted small inbox-help">
-        Testimonials are end-to-end encrypted on send. When you accept, the
+        Testimonials are end-to-end encrypted on send (NIP-A1 v2{" "}
+        <code>kind:64</code> envelope). When you accept, the{" "}
         <code>kind:63</code> event signed by the author is published and added
-        to your public list. When you reject, the gift-wrap is discarded
-        locally — nobody is notified.
+        to your public list. When you reject, the envelope is discarded locally
+        — nobody is notified.
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -188,7 +186,7 @@ export default function InboxPage() {
       ) : (
         <ul className="inbox-list">
           {items.map((p) => (
-            <li key={p.wrapId} className="inbox-item">
+            <li key={p.envelopeId} className="inbox-item">
               <div className="inbox-item-head">
                 <AuthorLine pk={p.authorPk} />
                 <span
@@ -205,14 +203,14 @@ export default function InboxPage() {
               <div className="inbox-actions">
                 <button
                   className="primary"
-                  disabled={!p.ok || busyId === p.wrapId}
+                  disabled={!p.ok || busyId === p.envelopeId}
                   onClick={() => accept(p)}
                 >
-                  {busyId === p.wrapId ? "Publishing…" : "Accept and publish"}
+                  {busyId === p.envelopeId ? "Publishing…" : "Accept and publish"}
                 </button>
                 <button
                   className="ghost"
-                  disabled={busyId === p.wrapId}
+                  disabled={busyId === p.envelopeId}
                   onClick={() => reject(p)}
                 >
                   Reject

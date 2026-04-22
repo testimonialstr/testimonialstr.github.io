@@ -4,13 +4,20 @@ import { useAuth } from "../state/auth";
 import { pool, relays } from "../state/relay";
 import { prefetchProfiles } from "../state/profiles";
 import { KIND_TESTIMONIAL } from "../nip-a1/testimonial";
+import { KIND_ENVELOPE } from "../nip-a1/envelope";
+import { wrapDeliveryRelaysFor } from "../lib/nip65";
 import { AuthorLine } from "./Avatar";
 import { RichText } from "../lib/richtext";
 import { CardSkeleton } from "./Skeleton";
 
 type Row = {
-  ev: Event;
+  status: "accepted" | "pending";
+  /** kind:63 id when accepted, kind:64 envelope id when pending — the kind:5 target. */
+  id: string;
   recipientPk: string;
+  content: string;
+  createdAt: number;
+  expiresAt: number | null;
 };
 
 async function collect(
@@ -47,6 +54,15 @@ function formatDate(ts: number): string {
   });
 }
 
+function formatExpires(ts: number): string {
+  const diffMs = ts * 1000 - Date.now();
+  if (diffMs <= 0) return "expired";
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (days >= 2) return `expires in ${days} days`;
+  const hours = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60)));
+  return `expires in ${hours}h`;
+}
+
 export default function SentPage() {
   const { pubkey, signer } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
@@ -55,7 +71,7 @@ export default function SentPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!pubkey) return;
+    if (!pubkey || !signer) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -63,8 +79,9 @@ export default function SentPage() {
 
     (async () => {
       try {
-        const [sent, deletions] = await Promise.all([
+        const [sent, envs, deletions] = await Promise.all([
           collect({ kinds: [KIND_TESTIMONIAL], authors: [pubkey] }),
+          collect({ kinds: [KIND_ENVELOPE], authors: [pubkey] }),
           collect({ kinds: [5], authors: [pubkey] }),
         ]);
         if (cancelled) return;
@@ -76,18 +93,60 @@ export default function SentPage() {
           }
         }
 
-        const built: Row[] = [];
+        const accepted: Row[] = [];
         for (const ev of sent) {
           if (deletedIds.has(ev.id)) continue;
           if (!verifyEvent(ev)) continue;
           const pTag = ev.tags.find((t) => t[0] === "p");
           if (!pTag) continue;
-          built.push({ ev, recipientPk: pTag[1] });
+          accepted.push({
+            status: "accepted",
+            id: ev.id,
+            recipientPk: pTag[1],
+            content: ev.content,
+            createdAt: ev.created_at,
+            expiresAt: null,
+          });
         }
-        built.sort((a, b) => b.ev.created_at - a.ev.created_at);
+        const acceptedInnerIds = new Set(accepted.map((r) => r.id));
 
-        prefetchProfiles(built.map((r) => r.recipientPk));
-        setRows(built);
+        const pending: Row[] = [];
+        if (signer.nip44) {
+          for (const env of envs) {
+            if (cancelled) return;
+            if (deletedIds.has(env.id)) continue;
+            const pTag = env.tags.find((t) => t[0] === "p");
+            if (!pTag) continue;
+            const recipientPk = pTag[1];
+            let inner: Event;
+            try {
+              const json = await signer.nip44.decrypt(recipientPk, env.content);
+              inner = JSON.parse(json) as Event;
+            } catch {
+              continue;
+            }
+            if (inner.kind !== KIND_TESTIMONIAL) continue;
+            if (inner.pubkey !== pubkey) continue;
+            if (acceptedInnerIds.has(inner.id)) continue;
+            if (deletedIds.has(inner.id)) continue;
+            const expTag = env.tags.find((t) => t[0] === "expiration");
+            pending.push({
+              status: "pending",
+              id: env.id,
+              recipientPk,
+              content: inner.content,
+              createdAt: env.created_at,
+              expiresAt: expTag ? Number(expTag[1]) : null,
+            });
+          }
+        }
+
+        const all = [...accepted, ...pending].sort(
+          (a, b) => b.createdAt - a.createdAt,
+        );
+
+        prefetchProfiles(Array.from(new Set(all.map((r) => r.recipientPk))));
+        if (!cancelled) setRows(all);
       } catch (e: any) {
         if (!cancelled) setError(e?.message ?? String(e));
       } finally {
@@ -98,30 +157,45 @@ export default function SentPage() {
     return () => {
       cancelled = true;
     };
-  }, [pubkey]);
+  }, [pubkey, signer]);
 
-  async function remove(ev: Event) {
+  async function remove(r: Row) {
     if (!pubkey || !signer) return;
-    if (
-      !confirm(
-        "Publish a retraction (kind:5) for this testimonial? Clients that honor NIP-09 will hide it on the recipient's profile. This action is irreversible.",
-      )
-    )
-      return;
-    setBusyId(ev.id);
+    const confirmMsg =
+      r.status === "accepted"
+        ? "Publish a retraction (kind:5) for this testimonial? Clients that honor NIP-09 will hide it on the recipient's profile. This action is irreversible."
+        : "Delete this pending envelope? Publishes a kind:5 that removes the kind:64 from compliant relays — the recipient won't be able to accept it. This action is irreversible.";
+    if (!confirm(confirmMsg)) return;
+    setBusyId(r.id);
     try {
       const template = {
         kind: 5,
         created_at: Math.floor(Date.now() / 1000),
         tags: [
-          ["e", ev.id],
-          ["k", String(KIND_TESTIMONIAL)],
+          ["e", r.id],
+          [
+            "k",
+            String(
+              r.status === "accepted" ? KIND_TESTIMONIAL : KIND_ENVELOPE,
+            ),
+          ],
         ],
         content: "",
       };
       const signed = await signer.signEvent(template);
-      await Promise.any(pool.publish(relays(), signed));
-      setRows((prev) => prev.filter((r) => r.ev.id !== ev.id));
+      const targets =
+        r.status === "pending"
+          ? [
+              ...new Set([
+                ...(await wrapDeliveryRelaysFor(r.recipientPk).catch(
+                  () => [] as string[],
+                )),
+                ...relays(),
+              ]),
+            ]
+          : relays();
+      await Promise.any(pool.publish(targets, signed));
+      setRows((prev) => prev.filter((x) => x.id !== r.id));
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -131,6 +205,9 @@ export default function SentPage() {
 
   if (!pubkey) return null;
 
+  const pendingCount = rows.filter((r) => r.status === "pending").length;
+  const acceptedCount = rows.length - pendingCount;
+
   return (
     <div className="page">
       <div className="page-head">
@@ -139,17 +216,19 @@ export default function SentPage() {
           {loading
             ? "Fetching from relays…"
             : rows.length === 0
-              ? "Nothing published"
-              : `${rows.length} accepted testimonial(s)`}
+              ? "Nothing to show"
+              : `${acceptedCount} accepted · ${pendingCount} pending`}
         </div>
       </div>
 
       <div className="muted small inbox-help">
-        Testimonials you wrote that the recipient accepted — now public as{" "}
-        <code>kind:63</code>. Deleting publishes a <code>kind:5</code>{" "}
-        retraction (NIP-09) to relays; clients that honor the NIP hide the
-        testimonial automatically. Pending ones don't show up here — the
-        gift-wrap's ephemeral key is not recoverable.
+        Testimonials you wrote. <strong>Pending</strong> are encrypted{" "}
+        <code>kind:64</code> envelopes the recipient hasn't accepted yet —
+        delete publishes a <code>kind:5</code> on the envelope (NIP-A1 v2
+        lets authors retract pending deliveries).{" "}
+        <strong>Accepted</strong> are the public <code>kind:63</code> events
+        the recipient published — delete publishes a <code>kind:5</code>{" "}
+        retraction; compliant clients hide the testimonial.
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -163,31 +242,45 @@ export default function SentPage() {
         <div className="empty-state">
           <div className="empty-quote">“</div>
           <p>
-            None of your testimonials have been accepted yet. When someone
-            accepts one you sent, it will appear here.
+            You haven't sent any testimonials yet. Visit someone's profile and
+            write one — it will appear here until the recipient accepts it.
           </p>
         </div>
       ) : (
         <ul className="inbox-list">
           {rows.map((r) => (
-            <li key={r.ev.id} className="inbox-item">
+            <li key={r.id} className="inbox-item">
               <div className="inbox-item-head">
                 <AuthorLine pk={r.recipientPk} />
-                <span className="badge">to</span>
+                <span
+                  className={
+                    "badge " +
+                    (r.status === "accepted" ? "badge-ok" : "badge-bad")
+                  }
+                >
+                  {r.status === "accepted" ? "accepted · kind:63" : "pending · kind:64"}
+                </span>
               </div>
               <blockquote className="inbox-quote">
-                <RichText text={r.ev.content} />
+                <RichText text={r.content} />
               </blockquote>
               <div className="inbox-actions">
                 <time className="muted small">
-                  {formatDate(r.ev.created_at)}
+                  {formatDate(r.createdAt)}
+                  {r.status === "pending" && r.expiresAt
+                    ? ` · ${formatExpires(r.expiresAt)}`
+                    : ""}
                 </time>
                 <button
                   className="link-btn danger"
-                  disabled={busyId === r.ev.id}
-                  onClick={() => remove(r.ev)}
+                  disabled={busyId === r.id}
+                  onClick={() => remove(r)}
                 >
-                  {busyId === r.ev.id ? "Publishing…" : "Delete (kind:5)"}
+                  {busyId === r.id
+                    ? "Publishing…"
+                    : r.status === "accepted"
+                      ? "Delete (kind:5)"
+                      : "Cancel envelope (kind:5)"}
                 </button>
               </div>
             </li>

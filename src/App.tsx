@@ -7,25 +7,16 @@ import RejectedPage from "./components/RejectedPage";
 import SentPage from "./components/SentPage";
 import OnboardingPage from "./components/OnboardingPage";
 import { useAuth, wasLoggedIn } from "./state/auth";
-import { useRejected } from "./state/rejected";
 import { npub } from "./lib/keys";
 import { navigate, useRoute } from "./router";
 
 export default function App() {
   const { pubkey, loading, restore } = useAuth();
-  const syncRejected = useRejected((s) => s.sync);
-  const syncedFor = useRejected((s) => s.syncedFor);
   const route = useRoute();
 
   useEffect(() => {
     restore();
   }, [restore]);
-
-  useEffect(() => {
-    if (pubkey && syncedFor !== pubkey) {
-      syncRejected().catch(() => {});
-    }
-  }, [pubkey, syncedFor, syncRejected]);
 
   const gated =
     route.view === "inbox" ||

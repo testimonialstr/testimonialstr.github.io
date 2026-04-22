@@ -1,122 +1,118 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Event } from "nostr-tools/pure";
-import { pool, relays } from "./relay";
 import { useAuth } from "./auth";
-import { writeRelaysFor } from "../lib/nip65";
-import {
-  KIND_REJECT_LIST,
-  buildRejectListTemplate,
-  parseRejectList,
-} from "../nip-a1/rejectList";
 
-type State = {
+/**
+ * NIP-A1 v2 rejection is local-only. We cache the inner kind:63 per
+ * rejection (rejected events never reach relays, so we can't refetch them
+ * for the Rejected view) and key buckets by pubkey so switching accounts
+ * doesn't leak the blacklist across users.
+ */
+
+type Bucket = {
   ids: Record<string, true>;
   innerIds: Record<string, true>;
-  syncedFor: string | null;
-  reject: (wrapId: string, innerId?: string) => void;
-  rejectInner: (innerId: string) => void;
-  unrejectInner: (innerId: string) => void;
-  isRejected: (wrapId: string) => boolean;
-  isInnerRejected: (innerId: string) => boolean;
-  sync: () => Promise<void>;
-  publish: () => Promise<void>;
+  innerEvents: Record<string, Event>;
 };
 
-let publishTimer: ReturnType<typeof setTimeout> | null = null;
+const EMPTY_BUCKET: Bucket = { ids: {}, innerIds: {}, innerEvents: {} };
 
-function schedulePublish(publish: () => Promise<void>) {
-  if (publishTimer) clearTimeout(publishTimer);
-  publishTimer = setTimeout(() => {
-    publishTimer = null;
-    publish().catch(() => {});
-  }, 600);
+type State = {
+  byPubkey: Record<string, Bucket>;
+  reject: (envelopeId: string, inner?: Event) => void;
+  rejectInner: (inner: Event) => void;
+  unrejectInner: (innerId: string) => void;
+  isRejected: (envelopeId: string) => boolean;
+  isInnerRejected: (innerId: string) => boolean;
+};
+
+function currentPubkey(): string | null {
+  return useAuth.getState().pubkey;
+}
+
+function updateBucket(
+  state: State,
+  pk: string,
+  patch: (b: Bucket) => Bucket,
+): State {
+  const existing = state.byPubkey[pk] ?? EMPTY_BUCKET;
+  return {
+    ...state,
+    byPubkey: { ...state.byPubkey, [pk]: patch(existing) },
+  };
 }
 
 export const useRejected = create<State>()(
   persist(
     (set, get) => ({
-      ids: {},
-      innerIds: {},
-      syncedFor: null,
+      byPubkey: {},
 
-      reject: (wrapId, innerId) => {
-        set({
-          ids: { ...get().ids, [wrapId]: true },
-          innerIds: innerId
-            ? { ...get().innerIds, [innerId]: true }
-            : get().innerIds,
-        });
-        if (innerId) schedulePublish(get().publish);
+      reject: (envelopeId, inner) => {
+        const pk = currentPubkey();
+        if (!pk) return;
+        set((s) =>
+          updateBucket(s, pk, (b) => ({
+            ids: { ...b.ids, [envelopeId]: true },
+            innerIds: inner
+              ? { ...b.innerIds, [inner.id]: true }
+              : b.innerIds,
+            innerEvents: inner
+              ? { ...b.innerEvents, [inner.id]: inner }
+              : b.innerEvents,
+          })),
+        );
       },
 
-      rejectInner: (innerId) => {
-        set({ innerIds: { ...get().innerIds, [innerId]: true } });
-        schedulePublish(get().publish);
+      rejectInner: (inner) => {
+        const pk = currentPubkey();
+        if (!pk) return;
+        set((s) =>
+          updateBucket(s, pk, (b) => ({
+            ...b,
+            innerIds: { ...b.innerIds, [inner.id]: true },
+            innerEvents: { ...b.innerEvents, [inner.id]: inner },
+          })),
+        );
       },
 
       unrejectInner: (innerId) => {
-        const next = { ...get().innerIds };
-        delete next[innerId];
-        set({ innerIds: next });
-        schedulePublish(get().publish);
+        const pk = currentPubkey();
+        if (!pk) return;
+        set((s) =>
+          updateBucket(s, pk, (b) => {
+            const nextIds = { ...b.innerIds };
+            delete nextIds[innerId];
+            const nextEvents = { ...b.innerEvents };
+            delete nextEvents[innerId];
+            return { ...b, innerIds: nextIds, innerEvents: nextEvents };
+          }),
+        );
       },
 
-      isRejected: (id) => !!get().ids[id],
-      isInnerRejected: (id) => !!get().innerIds[id],
-
-      sync: async () => {
-        const { pubkey, signer } = useAuth.getState();
-        if (!pubkey || !signer?.nip44) return;
-
-        const prior = get().syncedFor;
-        if (prior && prior !== pubkey) {
-          set({ ids: {}, innerIds: {} });
-        }
-
-        const ev = (await pool.get(relays(), {
-          kinds: [KIND_REJECT_LIST],
-          authors: [pubkey],
-        })) as Event | null;
-
-        const remoteIds = await parseRejectList(
-          ev,
-          pubkey,
-          signer.nip44.decrypt,
-        );
-
-        const local = get().innerIds;
-        const merged: Record<string, true> = { ...local };
-        for (const id of remoteIds) merged[id] = true;
-
-        const hasLocalOnly = Object.keys(local).some(
-          (id) => !remoteIds.includes(id),
-        );
-
-        set({ innerIds: merged, syncedFor: pubkey });
-
-        if (hasLocalOnly) {
-          schedulePublish(get().publish);
-        }
+      isRejected: (id) => {
+        const pk = currentPubkey();
+        if (!pk) return false;
+        return !!get().byPubkey[pk]?.ids[id];
       },
 
-      publish: async () => {
-        const { pubkey, signer } = useAuth.getState();
-        if (!pubkey || !signer?.nip44) return;
-
-        const ids = Object.keys(get().innerIds);
-        const tmpl = await buildRejectListTemplate(
-          ids,
-          pubkey,
-          signer.nip44.encrypt,
-        );
-        const signed = await signer.signEvent(tmpl);
-
-        const writes = await writeRelaysFor(pubkey).catch(() => [] as string[]);
-        const targets = [...new Set([...writes, ...relays()])];
-        await Promise.any(pool.publish(targets, signed));
+      isInnerRejected: (id) => {
+        const pk = currentPubkey();
+        if (!pk) return false;
+        return !!get().byPubkey[pk]?.innerIds[id];
       },
     }),
-    { name: "testimonialstr-rejected" },
+    {
+      name: "testimonialstr-rejected",
+      version: 3,
+      migrate: () => ({ byPubkey: {} }),
+    },
   ),
 );
+
+export function useRejectedBucket(): Bucket {
+  const pk = useAuth((s) => s.pubkey);
+  return useRejected((s) =>
+    pk ? s.byPubkey[pk] ?? EMPTY_BUCKET : EMPTY_BUCKET,
+  );
+}

@@ -1,6 +1,7 @@
 import type { EventTemplate } from "nostr-tools/pure";
 
 export const KIND_TESTIMONIAL = 63;
+export const MAX_TESTIMONIAL_CHARS = 2000;
 
 export function buildTestimonial(
   recipientPk: string,

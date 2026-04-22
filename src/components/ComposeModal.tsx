@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { useAuth } from "../state/auth";
 import { pool, relays } from "../state/relay";
-import { buildTestimonial } from "../nip-a1/testimonial";
-import { wrapSignedEvent } from "../nip-a1/giftwrap";
+import {
+  buildTestimonial,
+  MAX_TESTIMONIAL_CHARS,
+} from "../nip-a1/testimonial";
+import { buildEnvelope } from "../nip-a1/envelope";
 import { wrapDeliveryRelaysFor } from "../lib/nip65";
 import { useProfile, profileName } from "../state/profiles";
 import { shortNpub } from "../lib/keys";
@@ -14,8 +17,6 @@ type Props = {
   onClose: () => void;
   onSent?: () => void;
 };
-
-const MAX_CHARS = 500;
 
 export default function ComposeModal({ recipientPk, onClose, onSent }: Props) {
   const { signer, pubkey } = useAuth();
@@ -38,10 +39,10 @@ export default function ComposeModal({ recipientPk, onClose, onSent }: Props) {
     try {
       const template = buildTestimonial(recipientPk, text.trim());
       const inner = await signer.signEvent(template);
-      const wrap = wrapSignedEvent(inner, recipientPk, { expiresInDays: 30 });
+      const envelope = await buildEnvelope(inner, recipientPk, signer);
       const targetRelays = await wrapDeliveryRelaysFor(recipientPk);
       const allRelays = [...new Set([...targetRelays, ...relays()])];
-      await Promise.any(pool.publish(allRelays, wrap));
+      await Promise.any(pool.publish(allRelays, envelope));
       setSent(true);
       onSent?.();
     } catch (e: any) {
@@ -51,7 +52,7 @@ export default function ComposeModal({ recipientPk, onClose, onSent }: Props) {
     }
   }
 
-  const overLimit = text.length > MAX_CHARS;
+  const overLimit = text.length > MAX_TESTIMONIAL_CHARS;
   const name = profileName(profile, shortNpub(recipientPk));
 
   return (
@@ -81,8 +82,8 @@ export default function ComposeModal({ recipientPk, onClose, onSent }: Props) {
             <h3>Sent</h3>
             <p>
               {name} needs to open their inbox and approve it for the
-              testimonial to show up on their profile. Since the gift-wrap is
-              encrypted, nobody can see the content until then.
+              testimonial to show up on their profile. The envelope is
+              encrypted, so nobody can see the content until then.
             </p>
             <button className="primary" onClick={onClose}>
               Close
@@ -99,7 +100,7 @@ export default function ComposeModal({ recipientPk, onClose, onSent }: Props) {
             />
             <div className="compose-meta">
               <span className={overLimit ? "warn" : "muted"}>
-                {text.length} / {MAX_CHARS}
+                {text.length} / {MAX_TESTIMONIAL_CHARS}
               </span>
               <span className="muted small">
                 Encrypted in transit · expires in 30 days if not approved

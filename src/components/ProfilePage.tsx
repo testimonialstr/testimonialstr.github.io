@@ -229,7 +229,8 @@ export default function ProfilePage({ npubParam, write }: Props) {
     const signed = await signer.signEvent(tmpl);
     await Promise.any(pool.publish(relays(), signed));
     setListRefs(targetPk, updated);
-    rejectInner(eventId);
+    const removedRow = rows.find((r) => r.ev.id === eventId);
+    if (removedRow) rejectInner(removedRow.ev);
     setRows((prev) => prev.filter((r) => r.ev.id !== eventId));
   }
 

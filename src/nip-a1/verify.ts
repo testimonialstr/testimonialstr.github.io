@@ -5,6 +5,17 @@ export type VerifyResult =
   | { ok: true; authorPk: string; recipientPk: string; content: string }
   | { ok: false; reason: string };
 
+/** Inner pubkey must match envelope pubkey — blocks replay under someone else's envelope. */
+export function verifyTestimonialInEnvelope(
+  inner: Event,
+  envelopePk: string,
+  expectedRecipientPk: string,
+): VerifyResult {
+  if (inner.pubkey !== envelopePk)
+    return { ok: false, reason: "inner pubkey does not match envelope sender" };
+  return verifyTestimonial(inner, expectedRecipientPk);
+}
+
 export function verifyTestimonial(
   inner: Event,
   expectedRecipientPk: string,

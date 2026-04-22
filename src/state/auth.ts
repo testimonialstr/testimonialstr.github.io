@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { getNip07, waitForNip07, type Nip07 } from "../lib/nip07";
 
-const FLAG_KEY = "testimonialstr-was-logged-in";
+const PUBKEY_KEY = "testimonialstr-pubkey";
 
 type State = {
   signer: Nip07 | null;
@@ -23,6 +23,14 @@ async function pickSigner(wait: boolean): Promise<Nip07> {
   return nip07;
 }
 
+function getStoredPubkey(): string | null {
+  try {
+    return localStorage.getItem(PUBKEY_KEY);
+  } catch {
+    return null;
+  }
+}
+
 export const useAuth = create<State>()((set) => ({
   signer: null,
   pubkey: null,
@@ -36,25 +44,24 @@ export const useAuth = create<State>()((set) => ({
       const pk = await nip07.getPublicKey();
       set({ signer: nip07, pubkey: pk, loading: false });
       try {
-        localStorage.setItem(FLAG_KEY, "1");
+        localStorage.setItem(PUBKEY_KEY, pk);
       } catch {}
     } catch (e: any) {
       set({ loading: false, error: e?.message ?? String(e) });
     }
   },
 
-  /** Silent re-login on app boot. Waits for the extension to inject itself. */
+  /** Trust the persisted pubkey; skip getPublicKey() so the extension doesn't re-prompt. */
   restore: async () => {
-    if (!wasLoggedIn()) return;
+    const stored = getStoredPubkey();
+    if (!stored) return;
     set({ loading: true });
     try {
       const nip07 = await pickSigner(true);
-      const pk = await nip07.getPublicKey();
-      set({ signer: nip07, pubkey: pk, loading: false });
+      set({ signer: nip07, pubkey: stored, loading: false });
     } catch {
-      // Extension not available or user revoked — clear the flag so we show the onboarding.
       try {
-        localStorage.removeItem(FLAG_KEY);
+        localStorage.removeItem(PUBKEY_KEY);
       } catch {}
       set({ loading: false });
     }
@@ -63,15 +70,11 @@ export const useAuth = create<State>()((set) => ({
   logout: () => {
     set({ signer: null, pubkey: null, error: null });
     try {
-      localStorage.removeItem(FLAG_KEY);
+      localStorage.removeItem(PUBKEY_KEY);
     } catch {}
   },
 }));
 
 export function wasLoggedIn(): boolean {
-  try {
-    return localStorage.getItem(FLAG_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return !!getStoredPubkey();
 }

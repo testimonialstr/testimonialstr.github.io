@@ -76,8 +76,9 @@ export default function OnboardingPage() {
           <div className="info-num">1</div>
           <h3>Receive</h3>
           <p>
-            People write encrypted testimonials via gift-wrap (NIP-59). They
-            only go public if you approve them.
+            People write encrypted testimonials delivered via a signed{" "}
+            <code>kind:64</code> envelope (NIP-A1 v2). They only go public if
+            you approve them.
           </p>
         </div>
         <div className="info-card">
